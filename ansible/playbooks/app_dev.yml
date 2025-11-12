@@ -1,0 +1,55 @@
+---
+- name: Setup App Dev Server
+  hosts: app_dev
+  become: yes
+
+  vars:
+    app_folder: /opt/demo_app
+    repo_url: https://github.com/karishmagdly27/demo-pro1.git
+
+  tasks:
+
+    - name: Update apt packages
+      apt:
+        update_cache: yes
+        upgrade: dist
+
+    - name: Install Nginx
+      apt:
+        name: nginx
+        state: present
+
+    - name: Ensure Nginx is running
+      service:
+        name: nginx
+        state: started
+        enabled: yes
+
+    - name: Create custom app folder
+      file:
+        path: "{{ app_folder }}"
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
+
+    - name: Add app folder to Git safe.directory
+      become_user: ubuntu
+      command: git config --global --add safe.directory "{{ app_folder }}"
+
+    - name: Clone demo app repo into custom folder
+      git:
+        repo: "{{ repo_url }}"
+        dest: "{{ app_folder }}"
+        version: dev
+        force: yes
+      become_user: ubuntu
+
+    - name: Set proper permissions for app folder
+      file:
+        path: "{{ app_folder }}"
+        state: directory
+        recurse: yes
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'

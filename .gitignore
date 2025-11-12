@@ -1,0 +1,22 @@
+# Terraform
+terraform/.terraform/
+terraform/.terraform/terraform.lock.hcl
+terraform/*.tfstate
+terraform/*.tfstate.backup
+terraform/crash.log
+terraform/override.tf
+terraform/override.tf.json
+terraform/*_override.tf
+terraform/*_override.tf.json
+terraform/terraform.tfvars
+
+# Jenkins related
+*.log
+secrets/
+*.pem
+
+# Node, Python, OS junk
+node_modules/
+__pycache__/
+.DS_Store
+Thumbs.db
