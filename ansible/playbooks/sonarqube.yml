@@ -1,0 +1,95 @@
+---
+- name: Setup SonarQube Server
+  hosts: sonarqube
+  become: yes
+  vars:
+    sonar_version: "9.9.1.69595"
+    sonar_install_dir: "/opt/sonarqube-{{ sonar_version }}"
+    sonar_user: "sonar"
+    sonar_port: 9000
+
+  tasks:
+
+    - name: Install requirements
+      apt:
+        name:
+          - unzip
+          - wget
+          - openjdk-17-jdk
+        state: present
+        update_cache: yes
+
+    - name: Create sonar user
+      user:
+        name: "{{ sonar_user }}"
+        shell: /bin/bash
+        system: yes
+        create_home: yes
+
+    - name: Set kernel parameters for SonarQube
+      sysctl:
+        name: "{{ item.name }}"
+        value: "{{ item.value }}"
+        state: present
+        reload: yes
+      loop:
+        - { name: 'vm.max_map_count', value: '524288' }
+        - { name: 'fs.file-max', value: '131072' }
+
+    - name: Set ulimits for sonar user
+      copy:
+        dest: /etc/security/limits.d/99-sonarqube.conf
+        content: |
+          sonar   -   nofile   131072
+          sonar   -   nproc    8192
+
+    - name: Download and extract SonarQube 9.9.1 LTS
+      shell: |
+        wget --header="User-Agent: Mozilla/5.0" https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-{{ sonar_version }}.zip -O /tmp/sonarqube.zip
+        unzip -o /tmp/sonarqube.zip -d /opt/
+      args:
+        creates: "{{ sonar_install_dir }}"
+
+    - name: Set ownership to sonar user
+      file:
+        path: "{{ sonar_install_dir }}"
+        owner: "{{ sonar_user }}"
+        group: "{{ sonar_user }}"
+        recurse: yes
+
+    - name: Create systemd service
+      copy:
+        dest: /etc/systemd/system/sonarqube.service
+        content: |
+          [Unit]
+          Description=SonarQube service
+          After=network.target
+
+          [Service]
+          Type=forking
+          User={{ sonar_user }}
+          Group={{ sonar_user }}
+          ExecStart={{ sonar_install_dir }}/bin/linux-x86-64/sonar.sh start
+          ExecStop={{ sonar_install_dir }}/bin/linux-x86-64/sonar.sh stop
+          LimitNOFILE=131072
+          LimitNPROC=8192
+          Restart=always
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Reload systemd
+      command: systemctl daemon-reload
+
+    - name: Enable and start SonarQube
+      systemd:
+        name: sonarqube
+        enabled: yes
+        state: started
+
+    - name: Wait for SonarQube port
+      wait_for:
+        port: "{{ sonar_port }}"
+        host: "{{ ansible_host }}"
+        timeout: 180
+      become: no

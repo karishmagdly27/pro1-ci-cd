@@ -2,8 +2,8 @@
 - name: Setup Jenkins Server
   hosts: jenkins
   become: yes
-  tasks:
 
+  tasks:
     - name: Update apt packages
       ansible.builtin.apt:
         update_cache: yes

@@ -1,4 +1,6 @@
+##########################
 # Fetch latest Ubuntu 22.04 AMI
+##########################
 data "aws_ami" "ubuntu" {
   most_recent = true
   owners      = ["099720109477"] # Canonical Ubuntu
@@ -8,7 +10,9 @@ data "aws_ami" "ubuntu" {
   }
 }
 
-# Security group for Jenkins
+##########################
+# Jenkins Security Group #
+##########################
 resource "aws_security_group" "jenkins_sg" {
   name = "jenkins-sg"
 
@@ -26,6 +30,13 @@ resource "aws_security_group" "jenkins_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  ingress {
+    from_port   = 9000
+    to_port     = 9000
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -34,16 +45,9 @@ resource "aws_security_group" "jenkins_sg" {
   }
 }
 
-# Jenkins EC2
-resource "aws_instance" "jenkins" {
-  ami             = data.aws_ami.ubuntu.id
-  instance_type   = "t3.micro"
-  key_name        = var.key_name
-  security_groups = [aws_security_group.jenkins_sg.name]
-  tags = { Name = "jenkins-server" }
-}
-
-# Security group for App Dev
+##################
+# App Security Group #
+##################
 resource "aws_security_group" "app_sg" {
   name = "app-sg"
 
@@ -69,11 +73,66 @@ resource "aws_security_group" "app_sg" {
   }
 }
 
-# App Dev EC2
-resource "aws_instance" "app_dev" {
+#########################
+# Nexus Security Group  #
+#########################
+resource "aws_security_group" "nexus_sg" {
+  name = "nexus-sg"
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 8081
+    to_port     = 8081
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+##################
+# EC2 Instances #
+##################
+
+# Jenkins
+resource "aws_instance" "jenkins" {
+  ami             = data.aws_ami.ubuntu.id
+  instance_type   = "t3.large"
+  key_name        = var.key_name
+  security_groups = [aws_security_group.jenkins_sg.name]
+  tags = { Name = "jenkins-server" }
+}
+
+# Nexus
+resource "aws_instance" "nexus" {
+  ami             = data.aws_ami.ubuntu.id
+  instance_type   = "t3.xlarge"
+  key_name        = var.key_name
+  security_groups = [aws_security_group.nexus_sg.name]
+  tags = { Name = "nexus-server" }
+}
+
+# App Environment Instances (Dev, Staging, Prod)
+resource "aws_instance" "app" {
+  for_each        = { 
+                      dev     = "app-dev",
+                      staging = "app-staging",
+                      prod    = "app-prod"
+                    }
   ami             = data.aws_ami.ubuntu.id
   instance_type   = "t3.micro"
   key_name        = var.key_name
   security_groups = [aws_security_group.app_sg.name]
-  tags = { Name = "app-dev" }
+  tags = { Name = each.value }
 }

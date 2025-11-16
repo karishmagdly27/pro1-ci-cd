@@ -1,0 +1,32 @@
+---
+- name: Prepare App Server (optional)
+  hosts: all
+  become: yes
+
+  vars:
+    app_folder: /opt/demo_app
+
+  tasks:
+    - name: Update apt packages
+      apt:
+        update_cache: yes
+        upgrade: dist
+
+    - name: Install Nginx
+      apt:
+        name: nginx
+        state: present
+
+    - name: Ensure Nginx is running
+      service:
+        name: nginx
+        state: started
+        enabled: yes
+
+    - name: Ensure app folder exists
+      file:
+        path: "{{ app_folder }}"
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
